@@ -1,55 +1,53 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>聚星樓交通 Dashboard</title>
-
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <div class="container">
+<div class="container">
 
-    <!-- HEADER -->
-    <div class="header">
-      <div class="title">📍 聚星樓交通 Dashboard</div>
+  <div class="header">
+    <div class="title">📍 聚星樓交通 Dashboard</div>
 
-      <div class="weather">
-        <div id="weatherIcon">--</div>
-        <div>
-          <div id="temp">--°C</div>
-          <div id="humidity">💧--%</div>
-        </div>
+    <div class="weather">
+      <div id="weatherIcon">--</div>
+      <div>
+        <div id="temp">--°C</div>
+        <div id="humidity">💧--%</div>
       </div>
-
-      <div id="warning"></div>
-
-      <div id="lastUpdate">最後更新（香港時間）：--</div>
     </div>
 
-    <!-- MTR -->
-    <div class="section-title">🚇 天水圍站（屯馬綫）</div>
+    <div id="warning"></div>
 
-    <div class="card">
-      <div class="direction">🚆 往 屯門</div>
-      <div id="mtrToTuenMun">--</div>
-    </div>
-
-    <div class="card">
-      <div class="direction">🚆 往 烏溪沙</div>
-      <div id="mtrToWuKaiSha">--</div>
-    </div>
-
-    <!-- BUS -->
-    <div class="section-title">🚌 聚星樓</div>
-
-    <div id="busList"></div>
-
+    <div id="lastUpdate">最後更新（香港時間）：--</div>
   </div>
 
-  <script src="app.js"></script>
+  <div class="section-title">🚇 天水圍站（屯馬綫）</div>
+
+  <div class="card">
+    <div class="direction">🚆 往 屯門</div>
+    <div id="mtrToTuenMun">--</div>
+  </div>
+
+  <div class="card">
+    <div class="direction">🚆 往 烏溪沙</div>
+    <div id="mtrToWuKaiSha">--</div>
+  </div>
+
+  <div class="section-title">🚌 聚星樓</div>
+  <div id="busList">--</div>
+
+  <!-- DEBUG BOX（手機用） -->
+  <div id="debug" style="font-size:10px;color:#666;margin-top:10px;"></div>
+
+</div>
+
+<script src="app.js"></script>
 
 </body>
 </html>
