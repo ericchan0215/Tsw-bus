@@ -16,7 +16,13 @@ body{
 
 h1{
   font-size:26px;
-  margin-bottom:10px;
+  margin-bottom:6px;
+}
+
+#refreshTime{
+  font-size:12px;
+  color:#888;
+  margin-bottom:12px;
 }
 
 .card{
@@ -33,7 +39,7 @@ h1{
 }
 
 .dest{
-  font-size:14px;
+  font-size:13px;
   color:#aaa;
   margin-top:2px;
 }
@@ -47,25 +53,109 @@ h1{
 
 <body>
 
-<h1>📍 聚星樓（測試版）</h1>
+<h1>📍 聚星樓</h1>
+<div id="refreshTime">Loading...</div>
 
-<div class="card">
-  <div class="route">69M</div>
-  <div class="dest">往 葵芳站</div>
-  <div class="eta">2 分鐘 / 12 分鐘</div>
-</div>
+<div id="app">載入中...</div>
 
-<div class="card">
-  <div class="route">969</div>
-  <div class="dest">往 銅鑼灣</div>
-  <div class="eta">即將到站 / 8 分鐘</div>
-</div>
+<script>
 
-<div class="card">
-  <div class="route">269C</div>
-  <div class="dest">往 觀塘碼頭</div>
-  <div class="eta">5 分鐘 / 18 分鐘</div>
-</div>
+let stopId = "";
+
+// 🧠 1. 搵聚星樓 stop ID（自動）
+async function getStopId(){
+
+  const res = await fetch("https://data.etabus.gov.hk/v1/transport/kmb/stop");
+  const json = await res.json();
+
+  const found = json.data.find(s =>
+    s.name_en.toLowerCase().includes("tsui sing lau")
+  );
+
+  stopId = found.stop;
+}
+
+// 🚌 2. 拎所有 ETA
+async function loadETA(){
+
+  const res = await fetch(
+    `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`
+  );
+
+  const json = await res.json();
+
+  const routes = {};
+
+  json.data.forEach(b => {
+
+    if(!routes[b.route]){
+      routes[b.route] = {
+        dest: b.dest_en,
+        times: []
+      };
+    }
+
+    if(b.eta){
+      const mins = Math.round((new Date(b.eta)-new Date())/60000);
+      routes[b.route].times.push(mins);
+    }
+  });
+
+  // 排序 ETA
+  Object.keys(routes).forEach(r=>{
+    routes[r].times.sort((a,b)=>a-b);
+  });
+
+  // 轉 array + 排序（最快優先）
+  let arr = Object.keys(routes).map(r=>{
+    return {
+      route:r,
+      dest:routes[r].dest,
+      t:routes[r].times
+    };
+  });
+
+  arr.sort((a,b)=> (a.t[0]||999)-(b.t[0]||999));
+
+  // render
+  let html="";
+
+  arr.forEach(r=>{
+
+    html += `
+    <div class="card">
+      <div class="route">${r.route}</div>
+      <div class="dest">往 ${r.dest}</div>
+      <div class="eta">
+        ${format(r.t[0])} / ${format(r.t[1])}
+      </div>
+    </div>
+    `;
+  });
+
+  document.getElementById("app").innerHTML = html;
+
+  document.getElementById("refreshTime").innerText =
+    "Last update: " + new Date().toLocaleTimeString();
+}
+
+function format(m){
+  if(m == null) return "—";
+  if(m <= 0) return "即將到站";
+  return m + " 分鐘";
+}
+
+// 🚀 init
+async function init(){
+  await getStopId();
+  await loadETA();
+
+  setInterval(loadETA,15000);
+}
+
+init();
+
+</script>
 
 </body>
 </html>
