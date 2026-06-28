@@ -82,58 +82,68 @@ async function loadMTR() {
       "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TML&sta=TIS&lang=tc";
 
     const res = await fetch(url);
+
+    // 🔥 step 1: check HTTP ok
+    if (!res.ok) {
+      console.log("HTTP FAIL:", res.status);
+      mtr1.innerHTML = "--";
+      mtr2.innerHTML = "HTTP error";
+      return;
+    }
+
     const json = await res.json();
 
-    console.log("MTR RAW:", json);
+    console.log("🔥 FULL MTR RESPONSE:", json);
 
-    // ✅ status 可能係 number / string
+    // 🔥 step 2: force inspect
+    if (!json) {
+      mtr1.innerHTML = "--";
+      mtr2.innerHTML = "empty response";
+      return;
+    }
+
+    console.log("status:", json.status);
+    console.log("data keys:", json.data ? Object.keys(json.data) : null);
+
+    // 🔥 step 3: status check (robust)
     if (String(json.status) !== "1") {
       mtr1.innerHTML = "--";
-      mtr2.innerHTML = "MTR API error";
-      console.log("MTR status error:", json);
+      mtr2.innerHTML = "MTR status not OK";
       return;
     }
 
-    if (!json.data) {
+    if (!json.data || Object.keys(json.data).length === 0) {
       mtr1.innerHTML = "--";
-      mtr2.innerHTML = "no data";
+      mtr2.innerHTML = "no train data";
       return;
     }
 
-    // ✅ Next Train API structure：data 係 object，但 key 唔固定
-    const keys = Object.keys(json.data);
+    // 🔥 step 4: extract station
+    const firstKey = Object.keys(json.data)[0];
+    const station = json.data[firstKey];
 
-    if (!keys.length) {
-      mtr1.innerHTML = "--";
-      mtr2.innerHTML = "empty data";
-      return;
-    }
-
-    const station = json.data[keys[0]];
+    console.log("station key:", firstKey);
+    console.log("station:", station);
 
     if (!station) {
       mtr1.innerHTML = "--";
-      mtr2.innerHTML = "station parse error";
-      console.log("available keys:", keys);
+      mtr2.innerHTML = "station undefined";
       return;
     }
 
-    // =========================
-    // UP / DOWN render
-    // =========================
-
+    // 🔥 step 5: render
     renderMTR("mtr1", station.UP || []);
     renderMTR("mtr2", station.DOWN || []);
 
   } catch (e) {
 
-    console.log("MTR FETCH ERROR:", e);
+    console.log("🔥 MTR FETCH ERROR:", e);
 
-    document.getElementById("mtr1").innerHTML = "--";
-    document.getElementById("mtr2").innerHTML = "MTR API error";
-
+    mtr1.innerHTML = "--";
+    mtr2.innerHTML = "fetch failed";
   }
 }
+
 function renderMTR(id, arr) {
 
   const el = document.getElementById(id);
@@ -185,38 +195,28 @@ async function loadBus() {
 
   try {
 
-    const stopData = {};
+    const stops = {
+      "378A33FE9A4089DF": "📍 聚星樓",
+      "A12E1F37C7D98567": "📍 天祐苑"
+    };
 
-    // 🔥 1. 逐個 stop 分開 fetch
-    for (const stop of BUS_STOP_IDS) {
+    let html = "";
+
+    // =========================
+    // LOOP EACH STOP SEPARATELY
+    // =========================
+    for (const stopId of Object.keys(stops)) {
 
       const res = await fetch(
-        `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop}`
+        `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stopId}`
       );
 
       const json = await res.json();
 
-      if (json.data) {
-        stopData[stop] = json.data.filter(x => x.eta);
-      } else {
-        stopData[stop] = [];
-      }
-    }
-
-    let html = "";
-
-    // 🔥 2. 每個站分開 render
-    for (const stop of BUS_STOP_IDS) {
-
-      const list = stopData[stop];
-
-      const title =
-        stop === "378A33FE9A4089DF"
-          ? "📍 聚星樓"
-          : "📍 天祐苑";
+      const list = (json.data || []).filter(x => x.eta);
 
       html += `<div class="stop-block">`;
-      html += `<h3>${title}</h3>`;
+      html += `<h3>${stops[stopId]}</h3>`;
 
       if (!list.length) {
         html += "no bus data";
@@ -224,11 +224,16 @@ async function loadBus() {
         continue;
       }
 
-      // 🔥 3. sort
+      // =========================
+      // SORT BY ETA
+      // =========================
       list.sort((a, b) =>
         new Date(a.eta) - new Date(b.eta)
       );
 
+      // =========================
+      // GROUP BY ROUTE + DEST
+      // =========================
       const routes = {};
 
       for (const item of list) {
@@ -242,6 +247,9 @@ async function loadBus() {
         }
       }
 
+      // =========================
+      // RENDER EACH ROUTE GROUP
+      // =========================
       for (const group of Object.values(routes)) {
 
         const first = group[0];
@@ -265,10 +273,12 @@ async function loadBus() {
     bus.innerHTML = html;
 
   } catch (e) {
-    console.log(e);
+
+    console.log("BUS ERROR:", e);
     bus.innerHTML = "巴士 API 錯誤";
   }
 }
+
 /* ===========================
    HELPERS
 =========================== */
