@@ -1,9 +1,12 @@
 const REFRESH = 15000;
+
+const BUS_STOP_IDS = [
+  "378A33FE9A4089DF", // 聚星樓 TN200
+  "A12E1F37C7D98567"  // 天祐苑 TN592
+];
+
 const MTR_LINE = "TML";
 const MTR_STATION = "TIS";
-
-// ⚠️ IMPORTANT: fallback safe mode (no guessing broken stop ids)
-const BUS_STOP_ID = "13001";
 
 init();
 
@@ -13,126 +16,312 @@ function init() {
 }
 
 async function run() {
-  time();
-  weather();
-  mtr();
-  bus();
+  updateTime();
+  await loadWeather();
+  await loadMTR();
+  await loadBus();
 }
 
-/* =========================
-   TIME
-========================= */
-function time() {
+/* ===========================
+   香港時間
+=========================== */
+
+function updateTime() {
+
   document.getElementById("time").innerText =
+    "最後更新（香港時間）：" +
     new Date().toLocaleString("zh-HK", {
       timeZone: "Asia/Hong_Kong"
     });
+
 }
 
-/* =========================
-   WEATHER (HKO)
-========================= */
-async function weather() {
+/* ===========================
+   天氣
+=========================== */
+
+async function loadWeather() {
+
   try {
-    const r = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc");
-    const d = await r.json();
 
-    const t = d.temperature.data[0].value;
-    const h = d.humidity.data[0].value;
+    const res = await fetch(
+      "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc"
+    );
 
-    document.getElementById("weather").innerText =
-      `🌤️ ${t}°C 💧${h}%`;
+    const json = await res.json();
 
-  } catch {
-    document.getElementById("status").innerText = "Weather API fail";
-  }
-}
+    const temp =
+      json.temperature.data[0].value;
 
-/* =========================
-   MTR (ROBUST)
-========================= */
-async function mtr() {
-  try {
-    const url = `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${MTR_LINE}&sta=${MTR_STATION}&lang=tc`;
+    const humidity =
+      json.humidity.data[0].value;
 
-    const r = await fetch(url);
-    const d = await r.json();
-
-    if (!d?.data) throw "no mtr data";
-
-    const north = [];
-    const south = [];
-
-    for (let k in d.data) {
-      for (let t of d.data[k]) {
-        const min = diff(t.time);
-
-        if (k.includes("-N")) north.push(min);
-        if (k.includes("-S")) south.push(min);
-      }
-    }
-
-    show("mtr1", north);
-    show("mtr2", south);
+    document.getElementById("weather").innerHTML =
+      `🌤️ ${temp}°C &nbsp;&nbsp;💧${humidity}%`;
 
   } catch (e) {
-    document.getElementById("mtr1").innerText = "no data";
-    document.getElementById("mtr2").innerText = "no data";
+
+    console.log(e);
+
   }
+
 }
 
-/* =========================
-   BUS (REAL KMB)
-========================= */
-async function bus() {
+/* ===========================
+   MTR
+=========================== */
+
+async function loadMTR() {
+
+  const mtr1 =
+    document.getElementById("mtr1");
+
+  const mtr2 =
+    document.getElementById("mtr2");
+
   try {
-    const r = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${BUS_STOP_ID}`);
-    const d = await r.json();
 
-    if (!d?.data?.length) {
-      document.getElementById("bus").innerText = "no bus data";
+    const url =
+      `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${MTR_LINE}&sta=${MTR_STATION}&lang=tc`;
+
+    const res =
+      await fetch(url);
+
+    const json =
+      await res.json();
+
+    if (!json.data) {
+
+      mtr1.innerHTML = "--";
+
+      mtr2.innerHTML =
+        "MTR API 無資料";
+
+      console.log(json);
+
       return;
+
     }
 
-    const list = [];
+    const key =
+      Object.keys(json.data)[0];
 
-    for (let b of d.data) {
-      if (!b.eta) continue;
-      list.push(diff(b.eta));
-    }
+    const station =
+      json.data[key];
 
-    list.sort((a,b)=>a-b);
+    const up =
+      station.UP || [];
 
-    document.getElementById("bus").innerHTML =
-      list.slice(0,3).map(format).join(" / ");
+    const down =
+      station.DOWN || [];
 
-  } catch {
-    document.getElementById("bus").innerText = "bus api fail";
+    showMTR(
+      "mtr1",
+      up
+    );
+
+    showMTR(
+      "mtr2",
+      down
+    );
+
+  } catch (e) {
+
+    console.log(e);
+
+    mtr1.innerHTML = "--";
+
+    mtr2.innerHTML = "--";
+
   }
+
 }
 
-/* =========================
-   HELPERS
-========================= */
-function diff(t) {
-  const ts = Date.parse(t);
-  return Math.round((ts - Date.now()) / 60000);
-}
+function showMTR(id, arr) {
 
-function show(id, arr) {
-  const el = document.getElementById(id);
+  const el =
+    document.getElementById(id);
 
   if (!arr.length) {
-    el.innerText = "--";
+
+    el.innerHTML = "--";
+
     return;
+
   }
 
-  arr.sort((a,b)=>a-b);
-  el.innerText = arr.slice(0,4).map(format).join(" | ");
+  let html = "";
+
+  arr
+    .slice(0, 4)
+    .forEach(train => {
+
+      html +=
+        etaColor(
+          Number(train.ttnt)
+        ) + " ";
+
+    });
+
+  el.innerHTML = html;
+
 }
 
-function format(m) {
-  if (m <= 1) return "🔴 now";
-  if (m <= 5) return "🟢 " + m + "m";
-  return "⚪ " + m + "m";
+/* ===========================
+   BUS
+=========================== */
+
+async function loadBus() {
+
+  const bus =
+    document.getElementById("bus");
+
+  try {
+
+    let all = [];
+
+    for (const stop of BUS_STOP_IDS) {
+
+      const res =
+        await fetch(
+          `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop}`
+        );
+
+      const json =
+        await res.json();
+
+      if (json.data) {
+
+        all.push(...json.data);
+
+      }
+
+    }
+
+    if (!all.length) {
+
+      bus.innerHTML =
+        "沒有巴士資料";
+
+      return;
+
+    }
+
+    all = all.filter(x => x.eta);
+
+    all.sort((a, b) => {
+
+      return (
+        new Date(a.eta) -
+        new Date(b.eta)
+      );
+
+    });
+
+    const routes = {};
+
+    for (const item of all) {
+
+      const key =
+        item.route +
+        "_" +
+        item.dest_tc;
+
+      if (!routes[key]) {
+
+        routes[key] = [];
+
+      }
+
+      if (
+        routes[key].length < 2
+      ) {
+
+        routes[key].push(item);
+
+      }
+
+    }
+
+    let html = "";
+
+    Object.values(routes)
+      .forEach(list => {
+
+        const first = list[0];
+
+        html += `
+
+<div class="bus-item">
+
+<div class="bus-route">
+${first.route}
+</div>
+
+<div class="bus-dest">
+往 ${first.dest_tc}
+</div>
+
+<div class="bus-eta">
+${list
+  .map(x =>
+    etaColor(diff(x.eta))
+  )
+  .join("&nbsp;&nbsp;")}
+</div>
+
+</div>
+
+`;
+
+      });
+
+    bus.innerHTML =
+      html;
+
+  } catch (e) {
+
+    console.log(e);
+
+    bus.innerHTML =
+      "巴士 API 錯誤";
+
+  }
+
+}
+
+/* ===========================
+   HELPERS
+=========================== */
+
+function diff(time) {
+
+  const target =
+    new Date(time).getTime();
+
+  const now =
+    Date.now();
+
+  return Math.round(
+    (target - now) / 60000
+  );
+
+}
+
+function etaColor(min) {
+
+  if (min <= 1) {
+
+    return "🔴 即將";
+
+  }
+
+  if (min <= 5) {
+
+    return "🟢 " + min + " 分鐘";
+
+  }
+
+  return "⚪ " + min + " 分鐘";
+
 }
