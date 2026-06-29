@@ -347,30 +347,24 @@ async function loadMTRBusData() {
       const res = await fetch(url);
       const json = await res.json();
 
-      console.log("MTR BUS RAW:", json); // 🔥 debug
+      console.log("RAW:", json);
 
-      const data = json.data;
+      // 🔥 IMPORTANT: sometimes NO json.data
+      const data = json.data || json;
 
-      if (!data || !data.busStop) {
-        html += `<div class="bus-item">${route} no data</div>`;
+      if (!data.busStop) {
+        html += `<div>${route} no data</div>`;
         continue;
       }
 
       let buses = [];
 
-      // 🔥 flatten ALL stops → buses
-      data.busStop.forEach(stop => {
-        if (stop.bus && stop.bus.length) {
+      for (const stop of data.busStop || []) {
+        if (stop.bus) {
           buses.push(...stop.bus);
         }
-      });
-
-      if (!buses.length) {
-        html += `<div class="bus-item">${route} no buses</div>`;
-        continue;
       }
 
-      // sort by arrival time
       buses.sort((a, b) =>
         Number(a.arrivalTimeInSecond) -
         Number(b.arrivalTimeInSecond)
@@ -382,7 +376,9 @@ async function loadMTRBusData() {
         <div class="bus-item">
           <div class="bus-route">🚍 ${route}</div>
           <div class="bus-eta">
-            ${top.map(b => formatMTRBusETA(b.arrivalTimeText)).join("&nbsp;&nbsp;")}
+            ${top.map(b =>
+              formatMTRBusETA(b.arrivalTimeText)
+            ).join("&nbsp;&nbsp;")}
           </div>
         </div>
       `;
