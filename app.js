@@ -335,12 +335,7 @@ async function loadMTRBusData() {
 
   try {
 
-    // ✔ 最穩：用官方 document 最常成功 route set（簡化版）
-    const routes = [
-      "K51",
-      "K53",
-      "K51A"
-    ];
+    const routes = ["K51", "K53", "K51A"];
 
     let html = "";
 
@@ -354,26 +349,25 @@ async function loadMTRBusData() {
       const res = await fetch(url);
       const json = await res.json();
 
-      console.log("MTR BUS RAW:", route, json);
+      console.log("MTR BUS RAW:", json);
 
-      // ✔ API reject check
-      if (!json || json.status === "0") {
+      // 🚨 STEP 1: status check
+      if (!json || json.status !== "1") {
         html += `
           <div class="bus-item">
             <div class="bus-route">🚍 ${route}</div>
-            <div class="bus-eta">no data / invalid route</div>
+            <div class="bus-eta">service unavailable</div>
           </div>
         `;
         continue;
       }
 
-      const data = json.data || json;
-
-      if (!data.busStop) {
+      // 🚨 STEP 2: busStop check
+      if (!json.busStop || !Array.isArray(json.busStop)) {
         html += `
           <div class="bus-item">
             <div class="bus-route">🚍 ${route}</div>
-            <div class="bus-eta">no busStop</div>
+            <div class="bus-eta">no stops</div>
           </div>
         `;
         continue;
@@ -381,12 +375,26 @@ async function loadMTRBusData() {
 
       let buses = [];
 
-      data.busStop.forEach(stop => {
-        if (stop.bus) {
+      // 🚨 STEP 3: flatten busStop → bus[]
+      json.busStop.forEach(stop => {
+
+        if (stop.bus && Array.isArray(stop.bus)) {
           buses.push(...stop.bus);
         }
+
       });
 
+      if (buses.length === 0) {
+        html += `
+          <div class="bus-item">
+            <div class="bus-route">🚍 ${route}</div>
+            <div class="bus-eta">no buses</div>
+          </div>
+        `;
+        continue;
+      }
+
+      // 🚨 STEP 4: sort by ETA
       buses.sort((a, b) =>
         Number(a.arrivalTimeInSecond) -
         Number(b.arrivalTimeInSecond)
@@ -406,11 +414,11 @@ async function loadMTRBusData() {
       `;
     }
 
-    el.innerHTML = html;
+    el.innerHTML = html || "no MTR bus data";
 
   } catch (e) {
-    console.log("MTR BUS ERROR FULL:", e);
-    el.innerHTML = "MTR Bus API error (check console)";
+    console.log("MTR BUS ERROR:", e);
+    el.innerHTML = "MTR Bus API error";
   }
 }
 
