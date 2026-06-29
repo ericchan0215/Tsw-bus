@@ -20,6 +20,7 @@ async function run() {
   await loadWeather();
   await loadMTR();
   await loadBus();
+  await loadMTRBusData();
 }
 
 /* ===========================
@@ -326,4 +327,71 @@ function etaColor(min) {
 
   return "⚪ " + min + " 分鐘";
 
+}
+
+async function loadMTRBusData() {
+
+  const el = document.getElementById("mtrbus");
+
+  const k51 = await loadMTRBus("K51");
+  const k53 = await loadMTRBus("K53");
+  const k51a = await loadMTRBus("K51A");
+
+  let html = "";
+
+  function format(name, data) {
+
+    if (!data) return "";
+
+    const up = data.UP || [];
+    const down = data.DOWN || [];
+
+    const times = [...up, ...down]
+      .slice(0, 2)
+      .map(x => etaColor(diff(x.estimatedArrTime || x.time)));
+
+    return `
+      <div class="bus-item">
+        <div class="bus-route">${name}</div>
+        <div class="bus-eta">${times.join("&nbsp;&nbsp;")}</div>
+      </div>
+    `;
+  }
+
+  html += format("K51", k51);
+  html += format("K53", k53);
+  html += format("K51A", k51a);
+
+  el.innerHTML = html;
+}
+
+async function loadMTRBus(route) {
+
+  try {
+
+    const url =
+      `https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule?language=zh&routeName=${route}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    return json.data?.[route] || null;
+
+  } catch (e) {
+    console.log("MTR BUS ERROR", e);
+    return null;
+  }
+}
+
+function renderMTRBus(routeData) {
+
+  if (!routeData) return "--";
+
+  const up = routeData.UP || [];
+  const down = routeData.DOWN || [];
+
+  return {
+    up,
+    down
+  };
 }
