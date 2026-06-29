@@ -335,36 +335,70 @@ async function loadMTRBusData() {
 
   try {
 
-    const routes = ["K51", "K53", "K51A"];
+    // ✔ 用「真係 API accept」嘅 routeName（你 document 入面嗰種）
+    const routes = [
+      "K51 Fu Tai to Tai Lam",
+      "K53 Tuen Mun Station to So Kwun Wat (Circular)",
+      "K51A Fu Tai to So Kwun Wat"
+    ];
 
     let html = "";
 
     for (const route of routes) {
 
       const url =
-        `https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule?language=zh&routeName=${route}`;
+        "https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule" +
+        "?language=zh" +
+        "&routeName=" + encodeURIComponent(route);
 
       const res = await fetch(url);
       const json = await res.json();
 
-      console.log("RAW:", json);
+      console.log("MTR BUS RAW:", route, json);
 
-      // 🔥 IMPORTANT: sometimes NO json.data
-      const data = json.data || json;
+      // ✔ safety check（避免 crash）
+      if (!json || json.status === "0") {
+        html += `
+          <div class="bus-item">
+            <div class="bus-route">🚍 ${route}</div>
+            <div class="bus-eta">no data</div>
+          </div>
+        `;
+        continue;
+      }
 
-      if (!data.busStop) {
-        html += `<div>${route} no data</div>`;
+      const data = json.busStop ? json : json.data;
+
+      if (!data || !data.busStop) {
+        html += `
+          <div class="bus-item">
+            <div class="bus-route">🚍 ${route}</div>
+            <div class="bus-eta">no busStop</div>
+          </div>
+        `;
         continue;
       }
 
       let buses = [];
 
-      for (const stop of data.busStop || []) {
-        if (stop.bus) {
+      // ✔ flatten 所有 stop
+      for (const stop of data.busStop) {
+        if (stop.bus && stop.bus.length) {
           buses.push(...stop.bus);
         }
       }
 
+      if (buses.length === 0) {
+        html += `
+          <div class="bus-item">
+            <div class="bus-route">🚍 ${route}</div>
+            <div class="bus-eta">no buses</div>
+          </div>
+        `;
+        continue;
+      }
+
+      // ✔ sort by arrival time
       buses.sort((a, b) =>
         Number(a.arrivalTimeInSecond) -
         Number(b.arrivalTimeInSecond)
@@ -374,7 +408,7 @@ async function loadMTRBusData() {
 
       html += `
         <div class="bus-item">
-          <div class="bus-route">🚍 ${route}</div>
+          <div class="bus-route">🚍 ${route.split(" ")[0]}</div>
           <div class="bus-eta">
             ${top.map(b =>
               formatMTRBusETA(b.arrivalTimeText)
