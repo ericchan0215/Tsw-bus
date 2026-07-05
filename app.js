@@ -499,6 +499,10 @@ async function getScheduleData() {
 }
 
 // Test
-getScheduleData().then(schedule => {
-    console.log(schedule);
-});
+getScheduleData()
+    .then(schedule => {
+        console.log("Schedule:", schedule);
+    })
+    .catch(error => {
+        console.error(error);
+    });
