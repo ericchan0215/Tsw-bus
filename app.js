@@ -1,8 +1,5 @@
 const REFRESH = 15000;
 
-const MTR_LINE = "TML";
-const MTR_STATION = "TIS";
-
 init();
 
 function init() {
@@ -10,10 +7,15 @@ function init() {
   setInterval(run, REFRESH);
 }
 
+/* ===========================
+   MAIN LOOP
+=========================== */
+
 async function run() {
   updateTime();
   await loadWeather();
   await loadMTR();
+  await loadSchedule();
 }
 
 /* ===========================
@@ -47,7 +49,7 @@ async function loadWeather() {
       `🌤️ ${temp}°C &nbsp;&nbsp;💧${humidity}%`;
 
   } catch (e) {
-    console.log(e);
+    console.log("WEATHER ERROR:", e);
   }
 }
 
@@ -98,7 +100,7 @@ function renderMTR(id, arr) {
 
   const el = document.getElementById(id);
 
-  if (!arr.length) {
+  if (!arr || arr.length === 0) {
     el.innerHTML = "--";
     return;
   }
@@ -133,10 +135,11 @@ function renderMTR(id, arr) {
 }
 
 /* ===========================
-   SCHEDULE (kept)
+   GOOGLE SHEET
 =========================== */
 
 async function getScheduleData() {
+
   const spreadsheetId =
     "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
 
@@ -152,14 +155,93 @@ async function getScheduleData() {
     JSON.parse(text.substring(47).slice(0, -2));
 
   return json.table.rows.map(row => ({
-    date: row.c[1]?.f || row.c[1]?.v,
-    time: row.c[2]?.f || row.c[2]?.v,
+    date: parseDate(row.c[1]?.v),
+    time: row.c[2]?.v || "",
     person: row.c[3]?.v || "",
     activity: row.c[4]?.v || ""
   }));
 }
 
-// TEST ONLY
-getScheduleData()
-  .then(s => console.log("Schedule:", s))
-  .catch(e => console.error(e));
+/* ===========================
+   SCHEDULE MAIN
+=========================== */
+
+async function loadSchedule() {
+
+  const data = await getScheduleData();
+
+  const todayEvents = getTodayEvents(data);
+  const weekEvents = getWeekEvents(data);
+
+  renderSchedule(todayEvents, "todayEvents");
+  renderSchedule(weekEvents, "weekEvents");
+}
+
+/* ===========================
+   FILTERS
+=========================== */
+
+function getTodayEvents(data) {
+
+  const today = formatDate(new Date());
+
+  return data.filter(e => e.date === today);
+}
+
+function getWeekEvents(data) {
+
+  const today = new Date();
+  const end = new Date();
+  end.setDate(today.getDate() + 7);
+
+  return data.filter(e => {
+    const d = new Date(e.date);
+    return d > today && d <= end;
+  });
+}
+
+/* ===========================
+   RENDER
+=========================== */
+
+function renderSchedule(events, id) {
+
+  const el = document.getElementById(id);
+
+  if (!events.length) {
+    el.innerHTML = "暫無行程";
+    return;
+  }
+
+  el.innerHTML = events.map(e => `
+    <div class="schedule-item">
+      <div class="schedule-time">🕒 ${e.time}</div>
+      <div class="schedule-person">👤 ${e.person}</div>
+      <div class="schedule-title">📌 ${e.activity}</div>
+    </div>
+  `).join("");
+}
+
+/* ===========================
+   DATE HELPERS
+=========================== */
+
+function parseDate(str) {
+
+  if (!str) return "";
+
+  const d = new Date(str);
+
+  if (isNaN(d.getTime())) return str;
+
+  return formatDate(d);
+}
+
+function formatDate(d) {
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}/${month}/${day}`;
+}
