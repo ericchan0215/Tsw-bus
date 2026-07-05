@@ -477,3 +477,28 @@ function renderMTRBus(routeData) {
     down
   };
 }
+
+async function getScheduleData() {
+    const spreadsheetId = "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
+    const worksheetId = "1341569463";
+
+    const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
+
+    const response = await fetch(url);
+    const responseText = await response.text();
+
+    // Remove the Google Visualization wrapper
+    const json = JSON.parse(responseText.substring(47).slice(0, -2));
+
+    return json.table.rows.map(row => ({
+        date: row.c[1]?.f || row.c[1]?.v,
+        time: row.c[2]?.f || row.c[2]?.v,
+        person: row.c[3]?.v || "",
+        activity: row.c[4]?.v || ""
+    }));
+}
+
+// Test
+getScheduleData().then(schedule => {
+    console.log(schedule);
+});
