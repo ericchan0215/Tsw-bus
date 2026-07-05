@@ -6,38 +6,86 @@
   <title>交通 Dashboard</title>
 
   <style>
-    body { font-family: Arial; margin:0; background:#0f0f10; color:#fff; }
-    .wrap { padding:14px; max-width:520px; margin:auto; }
-    .card { background:#1a1a1c; padding:12px; border-radius:12px; margin:10px 0; }
-    .title { font-size:18px; font-weight:bold; }
-    .small { font-size:12px; color:#aaa; }
-    .error { color:#ff5555; font-size:12px; }
+    body {
+      font-family: Arial;
+      margin: 0;
+      background: #0f0f10;
+      color: #fff;
+    }
+
+    .wrap {
+      padding: 14px;
+      max-width: 520px;
+      margin: auto;
+    }
+
+    .card {
+      background: #1a1a1c;
+      padding: 12px;
+      border-radius: 12px;
+      margin: 10px 0;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .schedule-item {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .schedule-item:last-child {
+      border-bottom: none;
+    }
+
+    .schedule-time {
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    .schedule-title {
+      font-size: 14px;
+      margin-top: 2px;
+    }
   </style>
 </head>
 
 <body>
 <div class="wrap">
 
+  <!-- HEADER -->
   <div class="card">
     <div class="title">📍 聚星樓交通 Dashboard</div>
 
     <div id="weather">🌤️ --°C 💧--%</div>
     <div id="time" class="small">--</div>
-    <div id="status" class="error"></div>
+    <div id="status"></div>
   </div>
 
+  <!-- MTR -->
   <div class="card">
     🚇 天水圍站<br>
     往 屯門: <div id="mtr1">--</div>
     往 烏溪沙: <div id="mtr2">--</div>
   </div>
+
+  <!-- TODAY SCHEDULE -->
   <div class="card">
-  🚌 MTR 接駁巴士<br>
-  <div id="mtrbus">--</div>
+    📅 今日行程
+    <div id="todayEvents">--</div>
   </div>
+
+  <!-- WEEK SCHEDULE -->
   <div class="card">
-    🚌 巴士<br>
-    <div id="bus">--</div>
+    🗓️ 7日內行程（不包括今日）
+    <div id="weekEvents">--</div>
   </div>
 
 </div>
