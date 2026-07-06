@@ -2,10 +2,6 @@ const REFRESH = 15000;
 
 init();
 
-/* ===========================
-   INIT
-=========================== */
-
 function init() {
   run();
   setInterval(run, REFRESH);
@@ -127,18 +123,16 @@ function renderMTR(id, arr) {
 
     const min = parseInt(t, 10);
 
-    if (isNaN(min)) {
-      html += "⚪ 即將 ";
-    } else {
-      html += `🟢 ${min} 分鐘 `;
-    }
+    html += isNaN(min)
+      ? "⚪ 即將 "
+      : `🟢 ${min} 分鐘 `;
   });
 
   el.innerHTML = html;
 }
 
 /* ===========================
-   GOOGLE SHEET
+   GOOGLE SHEET (GViz FIXED)
 =========================== */
 
 async function getScheduleData() {
@@ -170,8 +164,9 @@ async function getScheduleData() {
       const rawDate = row.c?.[1]?.v;
 
       return {
-        date: normalizeDate(rawDate),
-        time: row.c?.[2]?.v || "",
+        date: normalizeGVizDate(rawDate),
+        rawDate,
+        time: normalizeGVizTime(row.c?.[2]),
         person: row.c?.[3]?.v || "",
         activity: row.c?.[4]?.v || ""
       };
@@ -184,23 +179,39 @@ async function getScheduleData() {
 }
 
 /* ===========================
-   NORMALIZE DATE (CORE FIX)
+   GViz DATE PARSER (CORE FIX)
 =========================== */
 
-function normalizeDate(str) {
+function parseGVizDate(value) {
 
-  if (!str) return "";
+  if (!value) return null;
 
-  const d = new Date(str);
+  const str = value.toString();
 
-  if (isNaN(d.getTime())) {
+  // Case 1: Date(2026,6,6)
+  const m = str.match(/Date\((\d+),(\d+),(\d+)/);
 
-    // fallback: string clean
-    return String(str)
-      .split(" ")[0]
-      .replaceAll("-", "/")
-      .trim();
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    return new Date(y, mo, d);
   }
+
+  // fallback
+  const fallback = new Date(str);
+  return isNaN(fallback) ? null : fallback;
+}
+
+/* ===========================
+   NORMALIZE DATE (SAFE OUTPUT)
+=========================== */
+
+function normalizeGVizDate(value) {
+
+  const d = parseGVizDate(value);
+
+  if (!d) return "";
 
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -210,7 +221,18 @@ function normalizeDate(str) {
 }
 
 /* ===========================
-   SCHEDULE LOADER
+   NORMALIZE TIME (optional)
+=========================== */
+
+function normalizeGVizTime(cell) {
+
+  if (!cell) return "";
+
+  return cell.f || cell.v || "";
+}
+
+/* ===========================
+   SCHEDULE
 =========================== */
 
 async function loadSchedule() {
@@ -227,7 +249,7 @@ async function loadSchedule() {
 }
 
 /* ===========================
-   FILTERS (STABLE VERSION)
+   FILTER (FULL SAFE)
 =========================== */
 
 function getTodayEvents(data) {
@@ -253,8 +275,8 @@ function getWeekEvents(data) {
 
   return data.filter(e => {
 
-    const d = new Date(e.date.replaceAll("/", "-"));
-    if (isNaN(d.getTime())) return false;
+    const d = parseGVizDate(e.rawDate);
+    if (!d) return false;
 
     return d >= now && d <= end;
   });
