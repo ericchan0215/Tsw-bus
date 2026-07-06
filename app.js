@@ -156,19 +156,21 @@ async function getScheduleData() {
     const response = await fetch(url);
     const text = await response.text();
 
-    // ⚠️ gviz wrapper remove
-    const json = JSON.parse(text.substring(47).slice(0, -2));
+    const jsonText = text
+      .replace("/*O_o*/", "")
+      .replace("google.visualization.Query.setResponse(", "")
+      .slice(0, -2);
 
-    console.log("SHEET RAW:", json);
+    const json = JSON.parse(jsonText);
 
-    if (!json?.table?.rows) {
-      throw new Error("Invalid sheet structure");
-    }
+    if (!json?.table?.rows) return [];
 
     return json.table.rows.map(row => {
 
       const rawDate = row.c?.[1]?.v;
-      const date = parseDate(rawDate);
+
+      // 👉 normalize date to YYYY/MM/DD string
+      const date = normalizeDate(rawDate);
 
       return {
         date,
@@ -185,52 +187,59 @@ async function getScheduleData() {
 }
 
 /* ===========================
-   SCHEDULE MAIN
+   SCHEDULE
 =========================== */
 
 async function loadSchedule() {
 
-  try {
+  const data = await getScheduleData();
 
-    const data = await getScheduleData();
+  console.log("🔥 SCHEDULE DATA:", data);
 
-    const todayEvents = getTodayEvents(data);
-    const weekEvents = getWeekEvents(data);
+  const todayEvents = getTodayEvents(data);
+  const weekEvents = getWeekEvents(data);
 
-    renderSchedule(todayEvents, "todayEvents");
-    renderSchedule(weekEvents, "weekEvents");
-
-  } catch (e) {
-    console.log("SCHEDULE ERROR:", e);
-
-    document.getElementById("todayEvents").innerHTML =
-      "❌ Schedule load error";
-
-    document.getElementById("weekEvents").innerHTML =
-      "❌ Schedule load error";
-  }
+  renderSchedule(todayEvents, "todayEvents");
+  renderSchedule(weekEvents, "weekEvents");
 }
 
 /* ===========================
-   FILTERS
+   DATE NORMALIZER (FIX CORE)
+=========================== */
+
+function normalizeDate(str) {
+
+  if (!str) return "";
+
+  const d = new Date(str);
+
+  if (isNaN(d.getTime())) {
+    // fallback: try raw string
+    return String(str).split(" ")[0].replaceAll("-", "/").trim();
+  }
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+/* ===========================
+   FILTERS (FIXED - STRING BASED)
 =========================== */
 
 function getTodayEvents(data) {
 
   const today = new Date();
-  today.setHours(0,0,0,0);
 
-  return data.filter(e => {
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
 
-    if (!e.date) return false;
+  const todayStr = `${yyyy}/${mm}/${dd}`;
 
-    const d = new Date(e.date.replaceAll("/", "-"));
-    if (isNaN(d.getTime())) return false;
-
-    d.setHours(0,0,0,0);
-
-    return d.getTime() === today.getTime();
-  });
+  return data.filter(e => e.date === todayStr);
 }
 
 function getWeekEvents(data) {
@@ -243,8 +252,6 @@ function getWeekEvents(data) {
   end.setHours(23,59,59,999);
 
   return data.filter(e => {
-
-    if (!e.date) return false;
 
     const d = new Date(e.date.replaceAll("/", "-"));
     if (isNaN(d.getTime())) return false;
@@ -274,31 +281,3 @@ function renderSchedule(events, id) {
     </div>
   `).join("");
 }
-
-/* ===========================
-   DATE HELPERS
-=========================== */
-
-function parseDate(str) {
-
-  if (!str) return "";
-
-  // Google Sheet sometimes returns Date object
-  const d = new Date(str);
-
-  if (isNaN(d.getTime())) return "";
-
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-
-  return `${year}/${month}/${day}`;
-}
-
-/* ===========================
-   DEBUG
-=========================== */
-
-getScheduleData().then(data => {
-  console.log("FINAL DATA:", data);
-});
