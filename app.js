@@ -167,79 +167,73 @@ function renderMTR(id, arr) {
 
 async function getScheduleData(){
 
-try{
+  try {
+
+    const spreadsheetId =
+    "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
 
 
-const spreadsheetId =
-"1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
+    const worksheetId =
+    "1341569463";
 
 
-const worksheetId =
-"1341569463";
+    const url =
+    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
 
 
-const url =
-`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
+    const response = await fetch(url);
+
+    const text = await response.text();
 
 
-const response = await fetch(url);
-
-const text = await response.text();
-
-
-const jsonText=text
-.replace("/*O_o*/","")
-.replace("google.visualization.Query.setResponse(","")
-.slice(0,-2);
+    const jsonText = text
+      .replace("/*O_o*/", "")
+      .replace("google.visualization.Query.setResponse(", "")
+      .slice(0, -2);
 
 
-
-const json=JSON.parse(jsonText);
-
+    const json = JSON.parse(jsonText);
 
 
-if(!json?.table?.rows)
-return [];
+    if (!json?.table?.rows) return [];
 
 
+    return json.table.rows.map(row => {
 
-return json.table.rows.map(row=>{
-
-
-const rawDate=row.c?.[1]?.v;
+      const rawDate = row.c?.[1]?.v;
 
 
-
-return {
-
-date:normalizeGVizDate(rawDate),
-
-rawDate,
-
-time:normalizeGVizTime(row.c?.[2]),
-
-person:row.c?.[3]?.v || "",
-
-activity:row.c?.[4]?.v || ""
-
-};
+      const rawTime = row.c?.[2];
 
 
-});
+      return {
+
+        date: normalizeGVizDate(rawDate),
+
+        rawDate: rawDate,
+
+        time: normalizeGVizTime(rawTime),
+
+        sortTime: normalizeGVizTime(rawTime),
+
+        person: row.c?.[3]?.v || "",
+
+        activity: row.c?.[4]?.v || ""
+
+      };
+
+    });
 
 
+  } catch (e) {
 
-}catch(e){
+    console.log("SHEET ERROR:", e);
 
-console.log("SHEET ERROR:",e);
+    return [];
 
-return [];
+  }
 
 }
-
-}
-
-
 
 /* ===========================
    DATE PARSER
@@ -463,21 +457,39 @@ function sortEvent(a, b) {
   const dateA = parseGVizDate(a.rawDate);
   const dateB = parseGVizDate(b.rawDate);
 
-  if (!dateA || !dateB) return 0;
-
-  // 先按日期
-  const dateDiff = dateA - dateB;
-
-  if (dateDiff !== 0) {
-    return dateDiff;
+  if (dateA - dateB !== 0) {
+    return dateA - dateB;
   }
 
-  // 同一天再按時間
-  return timeToMinutes(a.time) - timeToMinutes(b.time);
+  return convertTime(a.sortTime) - convertTime(b.sortTime);
 
 }
 
+function convertTime(time) {
 
+  if (!time) return 0;
+
+  const match = time.match(/(上午|下午)\s*(\d+):(\d+)/);
+
+  if (!match) return 0;
+
+  const period = match[1];
+
+  let hour = Number(match[2]);
+
+  const minute = Number(match[3]);
+
+  if (period === "下午" && hour !== 12) {
+    hour += 12;
+  }
+
+  if (period === "上午" && hour === 12) {
+    hour = 0;
+  }
+
+  return hour * 60 + minute;
+
+}
 
 /* ===========================
    RENDER
